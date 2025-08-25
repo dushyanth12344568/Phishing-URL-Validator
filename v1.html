@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing URL Validator</title>
+    <!-- Tailwind CSS for modern, responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+
+    <!-- Main application container -->
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-8 space-y-6 transform transition-all duration-300">
+        <h1 class="text-3xl font-bold text-center text-gray-800">Phishing URL Validator</h1>
+        <p class="text-center text-gray-600">Enter a URL to check if it's a potential phishing site.</p>
+
+        <!-- Input and button container -->
+        <div class="flex flex-col md:flex-row gap-4">
+            <input type="text" id="urlInput" placeholder="https://example-scam-site.com"
+                   class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+            <button id="scanButton"
+                    class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Scan URL
+            </button>
+        </div>
+
+        <!-- Loading and result display area -->
+        <div id="resultContainer" class="min-h-[5rem] flex items-center justify-center">
+            <div id="loadingIndicator" class="hidden flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                <p class="mt-4 text-gray-500">Scanning...</p>
+            </div>
+            <div id="resultMessage" class="text-center text-lg font-semibold"></div>
+        </div>
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const scanButton = document.getElementById('scanButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const resultMessage = document.getElementById('resultMessage');
+
+        // Function to simulate the Azure Function backend call and model logic
+        async function checkUrl(url) {
+            // Placeholder for a real API call to Azure Functions
+            // In a real hackathon, this would be a fetch() call to your deployed function.
+            // await fetch('YOUR_AZURE_FUNCTION_URL', { method: 'POST', body: JSON.stringify({ url }) });
+
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    const normalizedUrl = url.toLowerCase();
+                    let score = 0;
+                    let reason = [];
+
+                    // 1. Feature: Number of dots
+                    const dotCount = (normalizedUrl.match(/\./g) || []).length;
+                    if (dotCount > 3) {
+                        score += 30;
+                        reason.push("Suspiciously high number of dots.");
+                    }
+
+                    // 2. Feature: Presence of sensitive keywords (e.g., login, secure)
+                    const keywords = ["login", "verify", "secure", "account", "paypal", "bank"];
+                    const keywordFound = keywords.some(keyword => normalizedUrl.includes(keyword));
+                    if (keywordFound) {
+                        score += 20;
+                        reason.push("Contains sensitive keywords.");
+                    }
+
+                    // 3. Feature: Non-standard characters
+                    const nonStandardChars = /[%@]/;
+                    if (nonStandardChars.test(normalizedUrl)) {
+                        score += 25;
+                        reason.push("Includes unusual characters.");
+                    }
+
+                    // 4. Feature: Known scam patterns
+                    const scamPatterns = ["-login", ".secure", "paypal-"];
+                    const patternFound = scamPatterns.some(pattern => normalizedUrl.includes(pattern));
+                    if (patternFound) {
+                        score += 40;
+                        reason.push("Matches known phishing patterns.");
+                    }
+
+                    // Score-based result
+                    let resultText = '';
+                    let resultColor = '';
+                    if (score > 50) {
+                        resultText = `Warning: This URL is likely a phishing site. (Score: ${score})`;
+                        resultColor = 'text-red-600';
+                    } else if (score > 20) {
+                        resultText = `Caution: This URL has some suspicious characteristics. (Score: ${score})`;
+                        resultColor = 'text-yellow-600';
+                    } else {
+                        resultText = `Looks Safe: This URL appears to be safe. (Score: ${score})`;
+                        resultColor = 'text-green-600';
+                    }
+
+                    // Return the result and the reasons for it
+                    resolve({ resultText, resultColor, reason });
+
+                }, 1500); // Simulate a network delay
+            });
+        }
+
+        scanButton.addEventListener('click', async () => {
+            const url = urlInput.value.trim();
+            if (!url) {
+                resultMessage.textContent = 'Please enter a URL.';
+                resultMessage.className = 'text-center text-lg font-semibold text-gray-500';
+                return;
+            }
+
+            // Show loading indicator and clear previous results
+            resultMessage.textContent = '';
+            loadingIndicator.classList.remove('hidden');
+            resultContainer.classList.remove('min-h-[5rem]'); // Remove height to prevent jumping
+
+            try {
+                // Call the mock backend
+                const result = await checkUrl(url);
+
+                // Hide loading indicator and display results
+                loadingIndicator.classList.add('hidden');
+                resultMessage.textContent = result.resultText;
+                resultMessage.className = `text-center text-lg font-semibold ${result.resultColor}`;
+
+                if (result.reason.length > 0) {
+                    const reasonList = document.createElement('ul');
+                    reasonList.className = 'mt-4 text-sm text-gray-500 space-y-1';
+                    result.reason.forEach(r => {
+                        const li = document.createElement('li');
+                        li.textContent = `• ${r}`;
+                        reasonList.appendChild(li);
+                    });
+                    resultMessage.appendChild(reasonList);
+                }
+
+            } catch (error) {
+                // Handle potential errors
+                loadingIndicator.classList.add('hidden');
+                resultMessage.textContent = 'An error occurred. Please try again.';
+                resultMessage.className = 'text-center text-lg font-semibold text-red-500';
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
